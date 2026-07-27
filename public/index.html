@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#090b18">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Snake Arena">
+  <title>Neon Snake Arena</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body data-theme="neon">
+  <div class="ambient" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="brand" id="brandHome" type="button" aria-label="Zum Hauptmenü">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M12 37c0-13 9-23 22-23 8 0 15 4 18 10-5-2-9-1-12 2 8 1 13 6 13 13 0 8-7 14-16 14-8 0-15-5-17-12 4 3 8 4 12 3 4-1 6-3 6-6 0-4-3-6-7-6-5 0-8 3-8 8v6H12v-9Z"/>
+          <circle cx="39" cy="22" r="2.7"/>
+        </svg>
+        <span><strong>NEON</strong><small>SNAKE ARENA</small></span>
+      </button>
+      <div class="top-actions">
+        <span class="connection-pill" id="connectionPill" hidden>Offline</span>
+        <button class="icon-button" id="soundQuickToggle" type="button" aria-label="Sound umschalten">🔊</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="screen is-active" id="homeScreen" aria-labelledby="homeTitle">
+        <div class="hero-copy">
+          <span class="eyebrow">KLASSIK. NEU GELADEN.</span>
+          <h1 id="homeTitle">Wachse. Jage. Überlebe.</h1>
+          <p>Ein reaktionsschnelles Snake-Erlebnis mit anpassbaren Kreaturen, Neon-Effekten und echten Duellen.</p>
+        </div>
+
+        <div class="menu-grid">
+          <button class="menu-card primary-card" id="singleButton" type="button">
+            <span class="menu-icon">▶</span>
+            <span><strong>Solo starten</strong><small>Jage deinen Highscore</small></span>
+            <span class="menu-arrow">›</span>
+          </button>
+
+          <button class="menu-card versus-card" id="multiplayerButton" type="button">
+            <span class="menu-icon">⚔</span>
+            <span><strong>2 Spieler online</strong><small>Zwei Schlangen, eine große Arena</small></span>
+            <span class="live-dot">LIVE</span>
+          </button>
+
+          <button class="menu-card" id="customizeButton" type="button">
+            <span class="menu-icon">✦</span>
+            <span><strong>Design & Kreaturen</strong><small>Drache, Basilisk, Spermium und mehr</small></span>
+            <span class="menu-arrow">›</span>
+          </button>
+
+          <button class="menu-card" id="settingsButton" type="button">
+            <span class="menu-icon">⚙</span>
+            <span><strong>Einstellungen</strong><small>Steuerung, Tempo, Sound und Effekte</small></span>
+            <span class="menu-arrow">›</span>
+          </button>
+        </div>
+
+        <div class="stat-strip">
+          <div><span>Highscore</span><strong id="homeHighscore">0</strong></div>
+          <div><span>Aktiver Skin</span><strong id="homeSkin">Neon</strong></div>
+          <div><span>Bestes Erlebnis</span><strong>Querformat</strong></div>
+        </div>
+      </section>
+
+      <section class="screen panel-screen" id="multiplayerScreen" aria-labelledby="multiTitle">
+        <div class="section-heading">
+          <button class="back-button" data-back="home" type="button">←</button>
+          <div><span class="eyebrow">ECHTZEIT-DUELL</span><h2 id="multiTitle">Gemeinsam in eine Arena</h2></div>
+        </div>
+
+        <div class="lobby-layout">
+          <article class="glass-panel host-panel">
+            <div class="panel-icon">＋</div>
+            <h3>Raum erstellen</h3>
+            <p>Du erhältst sofort einen Code, den dein Gegner auf seinem Gerät eingibt.</p>
+            <label class="field-label" for="hostName">Dein Name</label>
+            <input class="text-input" id="hostName" maxlength="18" value="Spieler 1" autocomplete="nickname">
+            <button class="action-button" id="createRoomButton" type="button">Raum erstellen</button>
+          </article>
+
+          <article class="glass-panel join-panel">
+            <div class="panel-icon">⌁</div>
+            <h3>Raum beitreten</h3>
+            <p>Gib den Raumcode deines Gegners ein. Groß- und Kleinschreibung spielt keine Rolle.</p>
+            <label class="field-label" for="joinName">Dein Name</label>
+            <input class="text-input" id="joinName" maxlength="18" value="Spieler 2" autocomplete="nickname">
+            <label class="field-label" for="roomCodeInput">Raumcode</label>
+            <input class="text-input room-input" id="roomCodeInput" maxlength="8" inputmode="text" placeholder="ABC123" autocapitalize="characters" autocomplete="off">
+            <button class="action-button secondary-action" id="joinRoomButton" type="button">Beitreten</button>
+          </article>
+        </div>
+
+        <div class="info-callout">
+          <strong>So funktioniert das Duell</strong>
+          <p>Jeder spielt auf seinem eigenen Gerät. Beide sehen dieselbe 48 × 28 Felder große Karte. Der Cloudflare-Server berechnet Bewegungen und Kollisionen zentral.</p>
+        </div>
+      </section>
+
+      <section class="screen panel-screen" id="customizeScreen" aria-labelledby="customizeTitle">
+        <div class="section-heading">
+          <button class="back-button" data-back="home" type="button">←</button>
+          <div><span class="eyebrow">DEIN STIL</span><h2 id="customizeTitle">Kreatur auswählen</h2></div>
+        </div>
+
+        <div class="skin-grid" id="skinGrid">
+          <button class="skin-card is-selected" data-skin="neon" type="button"><canvas width="180" height="92"></canvas><strong>Neon Serpent</strong><small>Klar, schnell, futuristisch</small></button>
+          <button class="skin-card" data-skin="dragon" type="button"><canvas width="180" height="92"></canvas><strong>Cyber-Drache</strong><small>Schuppen, Hörner, Rückenkamm</small></button>
+          <button class="skin-card" data-skin="basilisk" type="button"><canvas width="180" height="92"></canvas><strong>Basilisk</strong><small>Giftgrüne Augen und Panzerhaut</small></button>
+          <button class="skin-card" data-skin="sperm" type="button"><canvas width="180" height="92"></canvas><strong>Turbo-Spermium</strong><small>Humorvoll mit fließendem Schweif</small></button>
+          <button class="skin-card" data-skin="cyber" type="button"><canvas width="180" height="92"></canvas><strong>Mecha-Wurm</strong><small>Segmentierte Metallpanzerung</small></button>
+          <button class="skin-card" data-skin="galaxy" type="button"><canvas width="180" height="92"></canvas><strong>Galaxie</strong><small>Sternenstaub und kosmischer Kern</small></button>
+        </div>
+
+        <div class="custom-controls glass-panel">
+          <div>
+            <label class="field-label" for="themeSelect">Umgebungsdesign</label>
+            <select class="select-input" id="themeSelect">
+              <option value="neon">Neon Night</option>
+              <option value="aurora">Aurora</option>
+              <option value="sunset">Solar Sunset</option>
+              <option value="mono">Minimal Mono</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="accentColor">Eigene Akzentfarbe</label>
+            <input class="color-input" id="accentColor" type="color" value="#55f5c5">
+          </div>
+          <button class="action-button" id="saveCustomizeButton" type="button">Design übernehmen</button>
+        </div>
+      </section>
+
+      <section class="screen panel-screen" id="settingsScreen" aria-labelledby="settingsTitle">
+        <div class="section-heading">
+          <button class="back-button" data-back="home" type="button">←</button>
+          <div><span class="eyebrow">FEINTUNING</span><h2 id="settingsTitle">Einstellungen</h2></div>
+        </div>
+
+        <div class="settings-list">
+          <div class="setting-row glass-panel">
+            <div><strong>Spieltempo</strong><small>Beeinflusst den Solo-Modus</small></div>
+            <select class="select-input compact" id="speedSelect">
+              <option value="relaxed">Entspannt</option>
+              <option value="normal">Normal</option>
+              <option value="turbo">Turbo</option>
+            </select>
+          </div>
+
+          <div class="setting-row glass-panel">
+            <div><strong>Wände</strong><small>Kollision oder Wechsel auf die andere Seite</small></div>
+            <select class="select-input compact" id="wallSelect">
+              <option value="solid">Kollision</option>
+              <option value="wrap">Durchgang</option>
+            </select>
+          </div>
+
+          <div class="setting-row glass-panel">
+            <div><strong>Bildschirm-Steuerkreuz</strong><small>Zusätzlich zu Wischgesten</small></div>
+            <label class="switch"><input id="dpadToggle" type="checkbox" checked><span></span></label>
+          </div>
+
+          <div class="setting-row glass-panel">
+            <div><strong>Raster anzeigen</strong><small>Leichte Orientierungslinien im Spielfeld</small></div>
+            <label class="switch"><input id="gridToggle" type="checkbox" checked><span></span></label>
+          </div>
+
+          <div class="setting-row glass-panel">
+            <div><strong>Reduzierte Bewegung</strong><small>Weniger Partikel, Wackeln und Pulse</small></div>
+            <label class="switch"><input id="motionToggle" type="checkbox"><span></span></label>
+          </div>
+
+          <div class="setting-row glass-panel volume-row">
+            <div><strong>Lautstärke</strong><small>Prozedurale Arcade-Sounds</small></div>
+            <input id="volumeRange" type="range" min="0" max="100" value="65">
+            <output id="volumeOutput">65%</output>
+          </div>
+        </div>
+
+        <button class="action-button settings-save" id="saveSettingsButton" type="button">Einstellungen speichern</button>
+      </section>
+
+      <section class="screen game-screen" id="gameScreen" aria-label="Snake Spielfeld">
+        <div class="game-layout">
+          <div class="game-stage" id="gameStage">
+            <canvas id="gameCanvas" aria-label="Snake Spielfeld"></canvas>
+            <div class="game-vignette" aria-hidden="true"></div>
+            <div class="center-message" id="centerMessage" aria-live="polite" hidden>
+              <strong id="centerMessageTitle"></strong>
+              <span id="centerMessageText"></span>
+            </div>
+            <div class="orientation-hint" id="orientationHint" hidden>
+              <span>↻</span><strong>Für das beste Duell bitte ins Querformat drehen</strong>
+            </div>
+          </div>
+
+          <aside class="game-hud">
+            <div class="hud-topline">
+              <button class="icon-button exit-button" id="exitGameButton" type="button" aria-label="Spiel verlassen">✕</button>
+              <div class="mode-chip" id="modeChip">SOLO</div>
+              <button class="icon-button" id="pauseButton" type="button" aria-label="Spiel pausieren">Ⅱ</button>
+            </div>
+
+            <div class="score-board">
+              <div class="player-score player-one"><span id="playerOneName">Du</span><strong id="playerOneScore">0</strong></div>
+              <div class="versus-mark" id="versusMark" hidden>VS</div>
+              <div class="player-score player-two" id="playerTwoScoreBox" hidden><span id="playerTwoName">Gegner</span><strong id="playerTwoScore">0</strong></div>
+            </div>
+
+            <div class="room-display" id="roomDisplay" hidden>
+              <span>RAUMCODE</span><strong id="activeRoomCode">------</strong>
+            </div>
+
+            <div class="dpad" id="dpad" aria-label="Richtungssteuerung">
+              <button data-dir="up" type="button" aria-label="Nach oben">▲</button>
+              <button data-dir="left" type="button" aria-label="Nach links">◀</button>
+              <button data-dir="down" type="button" aria-label="Nach unten">▼</button>
+              <button data-dir="right" type="button" aria-label="Nach rechts">▶</button>
+            </div>
+
+            <p class="gesture-tip">Wische auf dem Spielfeld oder nutze die Pfeile.</p>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "neon-snake-arena",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-07-26",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SNAKE_ROOMS",
+        "class_name": "SnakeRoom"
+      }
+    ]
+  },
+  "exports": {
+    "SnakeRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "observability": {
+    "enabled": true
+  }
+}

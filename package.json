@@ -1,0 +1,12 @@
+{
+  "name": "neon-snake-arena",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx wrangler@latest dev",
+    "deploy": "npx wrangler@latest deploy",
+    "test": "node --test tests/game-core.test.mjs",
+    "check": "node --check src/game-core.js && node --check src/worker.js && node --check public/app.js && npm test"
+  }
+}
