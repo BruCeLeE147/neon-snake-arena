@@ -50,3 +50,18 @@ test("eating grows the snake and increases score", () => {
   assert.equal(a.score, 25);
   assert.equal(result.events[0].type, "eat");
 });
+
+
+test("rapid turns are buffered in order", () => {
+  const player = createPlayer(0, "A", "neon", grid);
+  assert.equal(setDirection(player, "up"), true);
+  assert.equal(setDirection(player, "left"), true);
+  assert.deepEqual(player.inputQueue, ["up", "left"]);
+
+  stepMultiplayer([player], [], grid, constantRng(0.2));
+  assert.equal(player.dir, "up");
+  assert.equal(player.pendingDir, "left");
+
+  stepMultiplayer([player], [], grid, constantRng(0.2));
+  assert.equal(player.dir, "left");
+});

@@ -17,6 +17,9 @@ const SKIN_LABELS = {
   galaxy: "Galaxie"
 };
 const SPEEDS = { relaxed: 150, normal: 112, turbo: 78 };
+const INPUT_BUFFER_LIMIT = 3;
+const SWIPE_THRESHOLD = 13;
+const MULTIPLAYER_STEP_MS = 110;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 const DEFAULT_SETTINGS = {
@@ -420,6 +423,31 @@ function drawFood(ctx, food, metrics, time) {
   ctx.restore();
 }
 
+function renderPlayerBetweenTicks(player, grid) {
+  const progress = Math.max(0, Math.min(0.94, Number(player.renderProgress) || 0));
+  if (!progress || player.alive === false || !player.body?.length) return player;
+
+  const direction = player.renderDir || player.dir;
+  const vector = DIRECTIONS[direction] || DIRECTIONS.right;
+  const body = player.body.map((part, index) => {
+    const target = index === 0
+      ? { x: part.x + vector.x, y: part.y + vector.y }
+      : player.body[index - 1];
+
+    const crossesEdge = index === 0 && (
+      target.x < 0 || target.y < 0 || target.x >= grid.w || target.y >= grid.h
+    );
+    if (crossesEdge) return { ...part };
+
+    return {
+      x: part.x + (target.x - part.x) * progress,
+      y: part.y + (target.y - part.y) * progress
+    };
+  });
+
+  return { ...player, body, dir: direction };
+}
+
 class GameRenderer {
   constructor(canvas, stage) {
     this.canvas = canvas;
@@ -437,7 +465,7 @@ class GameRenderer {
 
   resize() {
     const rect = this.stage.getBoundingClientRect();
-    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     this.width = Math.max(1, rect.width);
     this.height = Math.max(1, rect.height);
     this.canvas.width = Math.round(this.width * dpr);
@@ -531,7 +559,9 @@ class GameRenderer {
     }
 
     for (const food of state.food || []) drawFood(ctx, food, this.metrics, time);
-    for (const player of state.players || []) drawSnake(ctx, player, this.metrics, time);
+    for (const player of state.players || []) {
+      drawSnake(ctx, renderPlayerBetweenTicks(player, state.grid), this.metrics, time);
+    }
 
     for (const particle of this.particles) {
       ctx.globalAlpha = Math.max(0, particle.life);
@@ -611,6 +641,7 @@ function createSingleGame() {
     snake,
     dir: "right",
     pendingDir: "right",
+    inputQueue: [],
     food: [],
     score: 0,
     foods: 0,
@@ -664,7 +695,9 @@ function configureGameHud() {
 function moveSingle() {
   const game = app.single;
   if (!game || game.phase !== "playing" || game.paused || !game.alive) return;
-  if (OPPOSITE[game.dir] !== game.pendingDir) game.dir = game.pendingDir;
+  const queuedDirection = game.inputQueue.shift() || game.pendingDir;
+  if (queuedDirection && OPPOSITE[game.dir] !== queuedDirection) game.dir = queuedDirection;
+  game.pendingDir = game.inputQueue[0] || game.dir;
   const vector = DIRECTIONS[game.dir];
   const head = game.snake[0];
   const next = { x: head.x + vector.x, y: head.y + vector.y };
@@ -717,7 +750,7 @@ function endSingleGame() {
   }
 }
 
-function singleRenderState() {
+function singleRenderState(renderProgress = 0) {
   const game = app.single;
   if (!game) return null;
   return {
@@ -729,14 +762,33 @@ function singleRenderState() {
       skin: settings.skin,
       body: game.snake,
       dir: game.dir,
+      renderDir: game.inputQueue[0] || game.pendingDir || game.dir,
+      renderProgress,
       alive: game.alive,
       score: game.score
     }]
   };
 }
 
-function multiplayerRenderState() {
-  return app.multi?.state || { grid: { w: 48, h: 28 }, food: [], players: [] };
+function multiplayerRenderState(now = performance.now()) {
+  const state = app.multi?.state;
+  if (!state) return { grid: { w: 48, h: 28 }, food: [], players: [] };
+
+  const elapsed = now - (app.multi.stateReceivedAt || now);
+  const renderProgress = state.status === "playing"
+    ? Math.min(0.94, Math.max(0, elapsed / MULTIPLAYER_STEP_MS))
+    : 0;
+
+  return {
+    ...state,
+    players: (state.players || []).map((player) => ({
+      ...player,
+      renderProgress,
+      renderDir: player.slot === app.multi.slot
+        ? (app.multi.predictedDir || player.dir)
+        : player.dir
+    }))
+  };
 }
 
 function updateHud() {
@@ -754,14 +806,36 @@ function updateHud() {
   ui.playerTwoScore.textContent = (opponent?.score || 0).toLocaleString("de-DE");
 }
 
+function queueSingleDirection(direction) {
+  const game = app.single;
+  if (!game) return false;
+
+  const reference = game.inputQueue.at(-1) || game.pendingDir || game.dir;
+  if (direction === reference || OPPOSITE[reference] === direction) return false;
+  if (game.inputQueue.length >= INPUT_BUFFER_LIMIT) return false;
+
+  game.inputQueue.push(direction);
+  game.pendingDir = game.inputQueue[0];
+  return true;
+}
+
 function setDirection(direction) {
   if (!DIRECTIONS[direction]) return;
-  sound.play("click");
+  let accepted = false;
+
   if (app.mode === "single" && app.single) {
-    if (OPPOSITE[app.single.dir] !== direction) app.single.pendingDir = direction;
+    accepted = queueSingleDirection(direction);
   } else if (app.mode === "multi" && app.multi?.ws?.readyState === WebSocket.OPEN) {
-    app.multi.ws.send(JSON.stringify({ type: "input", direction }));
+    const own = app.multi.state?.players?.find((player) => player.slot === app.multi.slot);
+    const reference = app.multi.predictedDir || own?.dir;
+    if (!reference || (direction !== reference && OPPOSITE[reference] !== direction)) {
+      app.multi.predictedDir = direction;
+      app.multi.ws.send(JSON.stringify({ type: "input", direction }));
+      accepted = true;
+    }
   }
+
+  if (accepted) sound.play("click");
 }
 
 function handleSingleCountdown(now) {
@@ -789,18 +863,23 @@ function frame(now) {
 
   if (app.active && app.mode === "single" && app.single) {
     handleSingleCountdown(now);
+    const acceleration = Math.min(28, Math.floor(app.single.score / 100) * 3);
+    const interval = Math.max(55, SPEEDS[settings.speed] - acceleration);
+
     if (app.single.phase === "playing" && !app.single.paused) {
       app.accumulator += dt;
-      const acceleration = Math.min(28, Math.floor(app.single.score / 100) * 3);
-      const interval = Math.max(55, SPEEDS[settings.speed] - acceleration);
       while (app.accumulator >= interval) {
         moveSingle();
         app.accumulator -= interval;
       }
     }
-    renderer.draw(singleRenderState(), now);
+
+    const renderProgress = app.single.phase === "playing" && !app.single.paused
+      ? app.accumulator / interval
+      : 0;
+    renderer.draw(singleRenderState(renderProgress), now);
   } else if (app.active && app.mode === "multi") {
-    renderer.draw(multiplayerRenderState(), now);
+    renderer.draw(multiplayerRenderState(now), now);
   }
 
   requestAnimationFrame(frame);
@@ -831,7 +910,7 @@ function connectRoom(room, name) {
   app.mode = "multi";
   app.active = true;
   app.intentionalClose = false;
-  app.multi = { ws: null, state: null, slot: null, room: normalizedRoom, connected: false };
+  app.multi = { ws: null, state: null, slot: null, room: normalizedRoom, connected: false, stateReceivedAt: performance.now(), predictedDir: null };
   configureGameHud();
   ui.activeRoomCode.textContent = normalizedRoom;
   ui.connectionPill.hidden = false;
@@ -886,6 +965,9 @@ function handleMultiplayerMessage(message) {
 
   if (message.type === "state") {
     app.multi.state = message;
+    app.multi.stateReceivedAt = performance.now();
+    const own = message.players?.find((player) => player.slot === app.multi.slot);
+    if (own && app.multi.predictedDir === own.dir) app.multi.predictedDir = null;
     updateHud();
     updateMultiplayerCenter(message);
     return;
@@ -1078,19 +1160,32 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+function directionFromDelta(dx, dy) {
+  return Math.abs(dx) > Math.abs(dy)
+    ? (dx > 0 ? "right" : "left")
+    : (dy > 0 ? "down" : "up");
+}
+
 let pointerStart = null;
 ui.stage.addEventListener("pointerdown", (event) => {
-  pointerStart = { x: event.clientX, y: event.clientY, at: performance.now() };
+  pointerStart = { x: event.clientX, y: event.clientY };
   ui.stage.setPointerCapture?.(event.pointerId);
+});
+ui.stage.addEventListener("pointermove", (event) => {
+  if (!pointerStart) return;
+  const dx = event.clientX - pointerStart.x;
+  const dy = event.clientY - pointerStart.y;
+  if (Math.hypot(dx, dy) < SWIPE_THRESHOLD) return;
+
+  event.preventDefault();
+  setDirection(directionFromDelta(dx, dy));
+  pointerStart = { x: event.clientX, y: event.clientY };
 });
 ui.stage.addEventListener("pointerup", (event) => {
   if (!pointerStart) return;
   const dx = event.clientX - pointerStart.x;
   const dy = event.clientY - pointerStart.y;
-  const distance = Math.hypot(dx, dy);
-  if (distance > 18) {
-    setDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
-  }
+  if (Math.hypot(dx, dy) >= SWIPE_THRESHOLD) setDirection(directionFromDelta(dx, dy));
   pointerStart = null;
 });
 ui.stage.addEventListener("pointercancel", () => { pointerStart = null; });

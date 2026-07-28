@@ -38,6 +38,7 @@ export function createPlayer(slot, name, skin, grid) {
     body,
     dir,
     pendingDir: dir,
+    inputQueue: [],
     alive: true,
     score: 0,
     foods: 0
@@ -87,8 +88,14 @@ export function fillFood(grid, players, foods, desiredCount = 5, rng = Math.rand
 
 export function setDirection(player, direction) {
   if (!DIRECTIONS[direction]) return false;
-  if (OPPOSITE[player.dir] === direction) return false;
-  player.pendingDir = direction;
+  if (!Array.isArray(player.inputQueue)) player.inputQueue = [];
+
+  const reference = player.inputQueue.at(-1) || player.pendingDir || player.dir;
+  if (direction === reference || OPPOSITE[reference] === direction) return false;
+  if (player.inputQueue.length >= 3) return false;
+
+  player.inputQueue.push(direction);
+  player.pendingDir = player.inputQueue[0];
   return true;
 }
 
@@ -99,7 +106,11 @@ export function stepMultiplayer(players, foods, grid, rng = Math.random) {
 
   for (const player of active) {
     if (!player.alive) continue;
-    if (OPPOSITE[player.dir] !== player.pendingDir) player.dir = player.pendingDir;
+    const nextDirection = player.inputQueue?.length
+      ? player.inputQueue.shift()
+      : player.pendingDir;
+    if (nextDirection && OPPOSITE[player.dir] !== nextDirection) player.dir = nextDirection;
+    player.pendingDir = player.inputQueue?.[0] || player.dir;
     const vector = DIRECTIONS[player.dir];
     const head = player.body[0];
     const nextHead = { x: head.x + vector.x, y: head.y + vector.y };
